@@ -2,86 +2,183 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Supabase Chat — Rooms & Invites</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Yap — private chats</title>
+<link rel="manifest" id="manifest-placeholder">
+<meta name="theme-color" content="#071023" id="meta-theme-color">
 <style>
-  :root{--bg:#071023;--card:#081426;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
-  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#071023 0%, #081426 100%);color:#e6eef6}
-  .app{max-width:980px;margin:18px auto;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
-  header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
-  h1{font-size:18px;margin:0}
-  .cols{display:flex;gap:12px}
-  .col{flex:1;min-width:260px}
-  .pane{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px}
-  .rooms {max-height:36vh;overflow:auto;margin-bottom:12px}
-  .messages{height:48vh;overflow:auto;padding:12px;border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.03));margin-bottom:12px}
-  .msg{padding:8px 10px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.015)}
+  /* ---------- Theme & base ---------- */
+  :root{
+    --bg: #f2f4f7;
+    --panel: #ffffff;
+    --accent: #0ea5b7;
+    --muted: #6b7280;
+    --text: #0f172a;
+    --sms-left: #e6eef6;
+    --sms-right: #0ea5b7;
+    --sms-right-text: #012335;
+    --safe-area-top: env(safe-area-inset-top, 12px);
+  }
+  :root[data-theme="dark"]{
+    --bg:#071023;
+    --panel:#0b1220;
+    --accent:#06b6d4;
+    --muted:#94a3b8;
+    --text:#e6eef6;
+    --sms-left:#0f172a;
+    --sms-right:#06b6d4;
+    --sms-right-text:#021018;
+  }
+
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overscroll-behavior: none;touch-action: manipulation}
+  .app{height:100vh;display:grid;grid-template-rows:var(--safe-area-top) 64px 1fr;gap:0}
+
+  /* header */
+  header{grid-row:2 / 3;display:flex;align-items:center;padding:0 18px;border-bottom:1px solid rgba(0,0,0,0.06);background:var(--panel);z-index:6}
+  h1{font-size:20px;margin:0;font-weight:800}
+
+  /* main split */
+  .main{grid-row:3 / 4;display:grid;grid-template-columns:360px 1fr;min-height:0;background:var(--bg)}
+  .panel{background:var(--panel);border-right:1px solid rgba(0,0,0,0.04);display:flex;flex-direction:column;min-height:0}
+  .chat-panel{background:var(--panel);display:flex;flex-direction:column;min-height:0}
+
+  /* rooms list */
+  .rooms-head{display:flex;align-items:center;justify-content:space-between;padding:14px;border-bottom:1px solid rgba(0,0,0,0.03)}
+  .rooms-top-title{display:flex;flex-direction:column}
+  .rooms-list{overflow:auto;-webkit-overflow-scrolling:touch;padding:6px 6px;flex:1;min-height:0}
+  .room-entry{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;cursor:pointer;user-select:none;border-bottom:1px solid rgba(0,0,0,0.02)}
+  .room-entry:hover{background:rgba(0,0,0,0.03)}
+  .room-entry.active{background:linear-gradient(90deg, rgba(6,182,212,0.08), rgba(6,182,212,0.02));outline:2px solid rgba(6,182,212,0.08)}
+  .room-info{flex:1;display:flex;flex-direction:column;min-width:0}
+  .room-name{font-weight:700;display:flex;align-items:center;gap:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .room-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .room-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .last-snippet{font-size:13px;color:var(--muted);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .last-time{font-size:11px;color:var(--muted)}
+  .unread{background:var(--accent);color:white;padding:4px 8px;border-radius:999px;font-weight:700;font-size:12px;min-width:28px;text-align:center}
+
+  /* conversation column */
+  .conv-head{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid rgba(0,0,0,0.03)}
+  .conv-body{flex:1;overflow:auto;padding:28px;min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain; background:
+    radial-gradient(circle at 10% 8%, rgba(6,182,212,0.02), transparent 6%),
+    linear-gradient(180deg, rgba(0,0,0,0.01), transparent)}
+  /* ensure only messages scroll */
+  body, html {overflow:hidden}
+
+  /* message bubble rows */
+  .msg-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;max-width:82%}
+  .msg-row.me{margin-left:auto;flex-direction:row-reverse}
+  .avatar{width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),#0b7285);flex-shrink:0}
+  .bubble{padding:12px 14px;border-radius:18px;line-height:1.3;box-shadow:0 8px 24px rgba(2,6,23,0.06)}
+  .bubble.left{background:var(--sms-left);color:var(--text);border-bottom-left-radius:6px}
+  .bubble.right{background:var(--sms-right);color:var(--sms-right-text);border-bottom-right-radius:6px}
   .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
-  form{display:flex;gap:8px;margin-top:8px}
-  input[type=text], input[type=url]{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
-  button{padding:8px 10px;border-radius:8px;border:none;background:var(--accent);color:#012335;font-weight:600}
-  .tiny{font-size:12px;color:var(--muted);margin-top:8px}
-  label{display:block;margin-bottom:6px;color:var(--muted);font-size:13px}
-  .room-item{padding:8px;border-radius:8px;cursor:pointer;margin-bottom:8px;background:rgba(255,255,255,0.01)}
-  .room-item.active{outline:2px solid rgba(6,182,212,0.16)}
-  .small{font-size:12px;color:var(--muted)}
+  .timestamp{font-size:11px;color:var(--muted);margin-top:6px;text-align:right}
+
+  /* composer */
+  .composer{padding:12px;border-top:1px solid rgba(0,0,0,0.03);display:flex;gap:8px;align-items:center;background:var(--panel)}
+  .composer input[type=text]{flex:1;padding:12px;border-radius:999px;border:1px solid rgba(0,0,0,0.06);background:transparent;color:inherit}
+  .send-btn{padding:10px 14px;border-radius:999px;border:none;background:var(--accent);color:#fff;font-weight:700}
+
+  /* context menu */
+  .context-menu{position:fixed;z-index:9999;background:var(--panel);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.2);min-width:200px;padding:6px;display:none}
+  .context-item{padding:12px;border-radius:8px;cursor:pointer;font-weight:700}
+  .context-item:hover{background:rgba(0,0,0,0.04)}
+
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:none;align-items:center;justify-content:center;z-index:10000}
+  .modal{width:min(540px,92%);background:var(--panel);border-radius:12px;padding:18px;box-shadow:0 18px 60px rgba(2,6,23,0.45)}
+  .modal h3{margin:0 0 8px 0}
+  .modal .row{margin-top:12px;display:flex;gap:8px;align-items:center}
+  .modal input[type=text]{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(0,0,0,0.06)}
+  .modal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+  .btn{padding:10px 12px;border-radius:8px;border:none;cursor:pointer}
+  .btn.secondary{background:transparent;border:1px solid rgba(0,0,0,0.06)}
+  .btn.primary{background:var(--accent);color:white}
+
+  /* empty conversation illustration */
+  .empty-illustration{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted)}
+  .empty-illustration svg{opacity:0.12;margin-bottom:18px}
+  .empty-illustration h2{margin:0 0 8px 0;font-size:20px}
+  .empty-illustration p{margin:0;font-size:14px}
+
+  /* responsive / narrow screens */
+  @media (max-width:880px){
+    .main{grid-template-columns:1fr; } /* stack: rooms on top, conversation below */
+    .rooms-list{display:flex;gap:8px;overflow:auto;padding:10px;flex-wrap:nowrap}
+    .room-entry{min-width:220px;border-radius:10px;flex:0 0 auto}
+    .conv-body{padding:18px}
+  }
 </style>
 </head>
 <body>
-  <div class="app" role="main">
+  <div class="app" id="app">
+    <div></div>
+
     <header>
-      <h1>Supabase Chat — Rooms & Invites</h1>
-      <div style="margin-left:auto;font-size:12px;color:var(--muted)"><span id="status">connecting…</span></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <h1 id="appTitle">Yap</h1>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+        <button id="themeToggle" aria-label="Toggle theme" style="border-radius:10px;padding:8px;border:none;background:transparent;cursor:pointer">🌓</button>
+      </div>
     </header>
 
-    <div class="cols">
-      <div class="col">
-        <div class="pane">
-          <label>Rooms</label>
-          <div id="rooms" class="rooms"></div>
-
-          <label>Create room</label>
-          <input id="roomName" type="text" placeholder="Room name" />
-          <label style="margin-top:6px"><input id="roomPrivate" type="checkbox" /> Private room (invite link required)</label>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button id="createRoomBtn">Create</button>
-            <button id="refreshRoomsBtn">Refresh</button>
+    <div class="main">
+      <aside class="panel" aria-label="Chats">
+        <div class="rooms-head">
+          <div class="rooms-top-title">
+            <div style="font-weight:700">Chats</div>
           </div>
-
-          <div class="tiny" style="margin-top:10px">Click a room to join. Private rooms require an invite link.</div>
-        </div>
-      </div>
-
-      <div class="col" style="flex:2">
-        <div class="pane">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-            <div>
-              <div class="small">Current room</div>
-              <div id="currentRoomName">—</div>
-            </div>
-            <div style="margin-left:auto">
-              <input id="name" type="text" placeholder="Your name (optional)" />
-            </div>
+          <div style="display:flex;gap:8px">
+            <button id="newRoomBtn" class="btn primary" style="background:var(--accent);color:#fff">New</button>
           </div>
-
-          <div id="inviteContainer" class="small tiny" style="margin-bottom:8px"></div>
-
-          <div id="messages" class="messages" aria-live="polite"></div>
-
-          <form id="sendForm">
-            <input id="text" type="text" placeholder="Type a message" autocomplete="off" />
-            <button type="submit">Send</button>
-          </form>
-          <div class="tiny" style="margin-top:8px">Messages are scoped to the selected room.</div>
         </div>
-      </div>
+
+        <div class="rooms-list" id="roomsList" tabindex="0" aria-live="polite">
+          <!-- rooms injected -->
+        </div>
+      </aside>
+
+      <section class="chat-panel" aria-label="Conversation">
+        <div class="conv-head">
+          <div style="display:flex;flex-direction:column">
+            <div id="currentRoomName" style="font-weight:800">—</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <input id="name" type="text" placeholder="" style="padding:8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06)" />
+          </div>
+        </div>
+
+        <div id="messages" class="conv-body" aria-live="polite">
+          <!-- messages or empty illustration -->
+        </div>
+
+        <form id="sendForm" class="composer" onsubmit="return false;">
+          <input id="text" type="text" placeholder="" autocomplete="off" />
+          <button id="sendBtn" class="send-btn">Send</button>
+        </form>
+      </section>
     </div>
+  </div>
 
-    <footer style="margin-top:12px" class="tiny">Rooms demo • Not hardened for production</footer>
+  <!-- context menu -->
+  <div id="contextMenu" class="context-menu" role="menu" aria-hidden="true">
+    <div class="context-item" id="ctxOpen">Open</div>
+    <div class="context-item" id="ctxRename">Rename</div>
+    <div class="context-item" id="ctxInvite">Invite</div>
+    <div class="context-item" id="ctxDelete" style="color:#d23f44">Delete Chat</div>
+  </div>
+
+  <!-- modal -->
+  <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-hidden="true">
+    <div class="modal" id="modal">
+      <!-- content injected by script -->
+    </div>
   </div>
 
 <script type="module">
-/* ========== CONFIG: replace with your project values ========== */
+/* ========== CONFIG (keep your supabase values) ========== */
 const SUPABASE_URL = 'https://vwjibwesyxomcxtyneof.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3amlid2VzeXhvbWN4dHluZW9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwODE3MjcsImV4cCI6MjA4NjY1NzcyN30.WM17MsaWs1IgA7rmbanztoayBJmk2F2oEpgsqchgXFA';
 /* ============================================================ */
@@ -89,247 +186,601 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const $status = document.getElementById('status');
-const $rooms = document.getElementById('rooms');
-const $createRoomBtn = document.getElementById('createRoomBtn');
-const $refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
-const $roomName = document.getElementById('roomName');
-const $roomPrivate = document.getElementById('roomPrivate');
+/* DOM refs */
+const $roomsList = document.getElementById('roomsList');
+const $newRoomBtn = document.getElementById('newRoomBtn');
 const $currentRoomName = document.getElementById('currentRoomName');
-const $inviteContainer = document.getElementById('inviteContainer');
 const $messages = document.getElementById('messages');
 const $form = document.getElementById('sendForm');
 const $text = document.getElementById('text');
 const $name = document.getElementById('name');
+const $sendBtn = document.getElementById('sendBtn');
+const $contextMenu = document.getElementById('contextMenu');
+const $ctxOpen = document.getElementById('ctxOpen');
+const $ctxRename = document.getElementById('ctxRename');
+const $ctxInvite = document.getElementById('ctxInvite');
+const $ctxDelete = document.getElementById('ctxDelete');
+const $themeToggle = document.getElementById('themeToggle');
 
+const $modalBackdrop = document.getElementById('modalBackdrop');
+const $modal = document.getElementById('modal');
+
+let roomsCache = [];
+let currentRoom = null;
 let currentRoomId = null;
 let currentRoomToken = null;
-let currentRoom = null;
 let channel = null;
 
-/* utils */
+/* local keys */
+const LS_ROOMS = 'sb_chat_rooms_v1';
+const LS_MESSAGES_PREFIX = 'sb_chat_messages_v1_';
+const LS_ROOM_TOKEN = id => `room_token_${id}`;
+const LS_OUTBOX = 'sb_chat_outbox_v1';
+
+/* helpers */
 function nowIso(){ return new Date().toISOString(); }
 function uid(){ if(window.crypto && crypto.randomUUID) return crypto.randomUUID(); return 'tmp-' + Date.now().toString(36); }
-function formatTime(ts){ try{ return new Date(ts).toLocaleTimeString(); } catch(e){ return ''; } }
+function formatTime(ts){ try{ return new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+function clampText(s, n){ if(!s) return ''; return s.length > n ? s.slice(0,n-1) + '…' : s; }
 
-/* DOM helpers */
-function clearMessages(){ $messages.innerHTML = ''; }
-function addMessageDOM(m, opts={}) {
+/* local 'display name' helper */
+function getLocalName(){
+  // treat empty as 'anon' when rendering; user can change name input later
+  const n = ($name.value || '').trim();
+  return n === '' ? 'anon' : n;
+}
+
+/* theme */
+function applyTheme(theme){
+  if(theme === 'dark') document.documentElement.setAttribute('data-theme','dark');
+  else document.documentElement.removeAttribute('data-theme');
+}
+applyTheme('light');
+$themeToggle.onclick = ()=> applyTheme(document.documentElement.hasAttribute('data-theme') ? 'light' : 'dark');
+
+/* caching helpers */
+function saveRoomsToCache(rooms){ try{ localStorage.setItem(LS_ROOMS, JSON.stringify(rooms)); }catch(e){} }
+function loadRoomsFromCache(){ try{ return JSON.parse(localStorage.getItem(LS_ROOMS) || 'null'); }catch(e){return null} }
+function saveMessagesForRoom(roomId, msgs){ try{ localStorage.setItem(LS_MESSAGES_PREFIX + roomId, JSON.stringify(msgs)); }catch(e){} }
+function loadMessagesForRoomCache(roomId){ try{ return JSON.parse(localStorage.getItem(LS_MESSAGES_PREFIX + roomId) || 'null'); }catch(e){return null} }
+function persistRoomTokenLocally(roomId, token){ try{ localStorage.setItem(LS_ROOM_TOKEN(roomId), token || ''); }catch(e){} }
+function getLocalRoomToken(roomId){ try{ return localStorage.getItem(LS_ROOM_TOKEN(roomId)) || null; }catch(e){return null} }
+
+/* unread helpers */
+function getUnreadCount(roomId){ try{ return parseInt(localStorage.getItem('unread_' + roomId) || '0', 10) || 0; }catch(e){return 0} }
+function setUnreadCount(roomId, n){ try{ localStorage.setItem('unread_' + roomId, String(n)); }catch(e){} }
+function incUnread(roomId){ setUnreadCount(roomId, getUnreadCount(roomId) + 1); }
+function clearUnread(roomId){ setUnreadCount(roomId, 0); }
+
+/* UI render: rooms show last snippet/time/unread */
+function getLastMessageForRoom(roomId){
+  const msgs = loadMessagesForRoomCache(roomId);
+  if(!msgs || !msgs.length) return null;
+  return msgs[msgs.length - 1];
+}
+
+function renderRooms(list){
+  $roomsList.innerHTML = '';
+  list.forEach(r=>{
+    const el = document.createElement('div');
+    el.className = 'room-entry' + (currentRoomId === r.id ? ' active' : '');
+    el.setAttribute('data-id', r.id);
+
+    const avatar = document.createElement('div'); avatar.className='avatar'; avatar.textContent = (r.name||'?').split(/\s+/).map(s=>s[0]).slice(0,2).join('').toUpperCase();
+
+    const info = document.createElement('div'); info.className='room-info';
+    const nm = document.createElement('div'); nm.className='room-name';
+    nm.textContent = r.name || 'Untitled';
+    if (r.is_private) {
+      const lock = document.createElement('span'); lock.textContent = ' 🔒'; lock.style.opacity = '0.6'; nm.appendChild(lock);
+    }
+    const snippet = document.createElement('div'); snippet.className='last-snippet';
+    const last = getLastMessageForRoom(r.id);
+    if(last){
+      snippet.textContent = clampText(last.content.replace(/\n/g,' '), 40);
+    } else {
+      snippet.textContent = 'No messages yet';
+    }
+    info.appendChild(nm); info.appendChild(snippet);
+
+    const meta = document.createElement('div'); meta.className='room-meta';
+    const time = document.createElement('div'); time.className='last-time';
+    time.textContent = last ? formatTime(last.created_at) : '';
+    const unread = document.createElement('div'); unread.className='unread';
+    const ucount = getUnreadCount(r.id);
+    unread.textContent = ucount > 0 ? String(ucount > 99 ? '99+' : ucount) : '';
+    if(ucount === 0) unread.style.display = 'none';
+    meta.appendChild(time); meta.appendChild(unread);
+
+    el.appendChild(avatar); el.appendChild(info); el.appendChild(meta);
+
+    el.addEventListener('click', ()=> {
+      joinRoom(r.id, null);
+    });
+
+    attachLongPressContext(el, r);
+    $roomsList.appendChild(el);
+  });
+}
+
+/* show empty illustration or messages */
+function showEmptyConversation(){
+  $messages.innerHTML = '';
+  const wrap = document.createElement('div'); wrap.className = 'empty-illustration';
+  wrap.innerHTML = `
+    <svg width="160" height="100" viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="6" y="6" width="148" height="88" rx="12" fill="currentColor"/>
+    </svg>
+    <h2>Start the conversation</h2>
+    <p>Send the first message — it's private by default.</p>
+  `;
+  $messages.appendChild(wrap);
+}
+
+/* add message DOM (supports forceMe flag for returned messages) */
+function addMessageDOM(m, opts={}){
+  // dedupe by id
   if(m.id && document.querySelector(`[data-id="${m.id}"]`)) return;
+  // handle optimistic update if tempId exists
   if(opts.tempId){
     const existing = document.querySelector(`[data-temp-id="${opts.tempId}"]`);
     if(existing){
-      const meta = existing.querySelector('.meta');
-      if(meta) meta.textContent = (m.username||'anon')+' • '+formatTime(m.created_at||nowIso()) + (opts.mark? ' • '+opts.mark: '');
       const body = existing.querySelector('.body');
       if(body) body.textContent = m.content;
+      const meta = existing.querySelector('.meta');
+      if(meta) meta.textContent = (m.username||'anon') + ' • ' + formatTime(m.created_at||nowIso());
+      const st = existing.querySelector('.timestamp');
+      if(st && opts.status) st.textContent = opts.status;
       return existing;
     }
   }
-  const el = document.createElement('div'); el.className='msg';
-  if(m.id) el.setAttribute('data-id', m.id);
-  if(opts.tempId) el.setAttribute('data-temp-id', opts.tempId);
-  const meta = document.createElement('div'); meta.className='meta';
-  meta.textContent = (m.username||'anon')+' • '+formatTime(m.created_at||nowIso()) + (opts.mark? ' • '+opts.mark: '');
-  const body = document.createElement('div'); body.className='body'; body.textContent = m.content;
-  el.appendChild(meta); el.appendChild(body);
-  $messages.appendChild(el);
+
+  // determine if this message is from me
+  const localName = getLocalName();
+  const isMe = opts.forceMe === true || ((m.username||'').toLowerCase() === localName.toLowerCase());
+
+  const row = document.createElement('div'); row.className = 'msg-row' + (isMe ? ' me' : '');
+  if(m.id) row.setAttribute('data-id', m.id);
+  if(opts.tempId) row.setAttribute('data-temp-id', opts.tempId);
+
+  const avatar = document.createElement('div'); avatar.className = 'avatar'; avatar.textContent = (m.username||'A').split(/\s+/).map(s=>s[0]).slice(0,2).join('').toUpperCase();
+  const bubble = document.createElement('div'); bubble.className = 'bubble ' + (isMe ? 'right' : 'left');
+  const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = (m.username||'anon') + ' • ' + formatTime(m.created_at||nowIso());
+  const body = document.createElement('div'); body.className = 'body'; body.textContent = m.content;
+  const ts = document.createElement('div'); ts.className = 'timestamp'; ts.textContent = opts.status || '';
+
+  bubble.appendChild(meta); bubble.appendChild(body); bubble.appendChild(ts);
+  row.appendChild(avatar); row.appendChild(bubble);
+
+  // if messages div currently only contains empty illustration, remove it before adding
+  const onlyEmpty = $messages.children.length === 1 && $messages.children[0].classList && $messages.children[0].classList.contains('empty-illustration');
+  if(onlyEmpty) $messages.innerHTML = '';
+
+  $messages.appendChild(row);
   $messages.scrollTop = $messages.scrollHeight;
-  return el;
+  return row;
 }
-function removeOptimistic(tempId){ const el = document.querySelector(`[data-temp-id="${tempId}"]`); if(el) el.remove(); }
+function clearMessages(){ $messages.innerHTML = ''; }
 
-/* ROOM FUNCTIONS */
+/* Replace optimistic element (found by tempId) with returned message data while preserving 'me' layout */
+function replaceOptimisticWithReturned(tempId, returned){
+  const el = document.querySelector(`[data-temp-id="${tempId}"]`);
+  if(!el){
+    // fallback: just add returned normally
+    addMessageDOM(returned);
+    return;
+  }
+  // Update attributes and contents, but keep the same DOM node so alignment doesn't change
+  el.removeAttribute('data-temp-id');
+  if(returned.id) el.setAttribute('data-id', returned.id);
+  const meta = el.querySelector('.meta'); if(meta) meta.textContent = (returned.username||'anon') + ' • ' + formatTime(returned.created_at||nowIso());
+  const body = el.querySelector('.body'); if(body) body.textContent = returned.content;
+  const ts = el.querySelector('.timestamp'); if(ts) ts.textContent = '';
+  // ensure 'me' class is present if returned matches local user
+  const localName = getLocalName();
+  if((returned.username||'').toLowerCase() === localName.toLowerCase()){
+    el.classList.add('me');
+    const bubble = el.querySelector('.bubble'); if(bubble){ bubble.classList.remove('left'); bubble.classList.add('right'); }
+  }
+  // scroll to bottom
+  $messages.scrollTop = $messages.scrollHeight;
+}
+
+/* load rooms (cache-first) */
 async function loadRooms(){
-  $status.textContent = 'loading rooms…';
-  const { data, error } = await supabase.from('rooms').select('*').order('created_at', { ascending: true }).limit(200);
-  if(error){ console.error('loadRooms error', error); $status.textContent = 'rooms error'; return; }
-  $rooms.innerHTML = '';
-  data.forEach(r=>{
-    const el = document.createElement('div');
-    el.className = 'room-item' + (currentRoomId === r.id ? ' active':'');
-    el.textContent = (r.name || 'Untitled') + (r.is_private ? ' 🔒' : '');
-    el.addEventListener('click', ()=> joinRoom(r.id, null));
-    // attach quick invite button
-    const inv = document.createElement('button');
-    inv.textContent = 'Invite';
-    inv.style.float='right';
-    inv.onclick = (ev) => { ev.stopPropagation(); showInviteLink(r); };
-    el.appendChild(inv);
-    $rooms.appendChild(el);
-  });
-  $status.textContent = 'rooms loaded';
+  try{
+    const cached = loadRoomsFromCache();
+    if(cached){ roomsCache = cached; renderRooms(roomsCache); }
+    if(!navigator.onLine) return;
+    const { data, error } = await supabase.from('rooms').select('*').order('created_at',{ascending:true}).limit(500);
+    if(error){ console.error('loadRooms', error); return; }
+    roomsCache = data;
+    saveRoomsToCache(data);
+    renderRooms(data);
+  } catch(err){ console.error(err); }
 }
 
-async function createRoom(){
-  const name = $roomName.value.trim() || 'Room';
-  const is_private = !!$roomPrivate.checked;
-  $createRoomBtn.disabled = true;
-  const { data, error } = await supabase.from('rooms').insert([{ name, is_private }]).select();
-  $createRoomBtn.disabled = false;
-  if(error){ console.error('createRoom error', error); alert('failed to create: '+error.message); return; }
-  const room = data[0];
-  // auto-join the new room and show invite link if private
-  await loadRooms();
-  joinRoom(room.id, room.is_private ? room.invite_token : null);
-  $roomName.value = '';
-  $roomPrivate.checked = false;
-}
+/* create-room modal (private only) */
+$newRoomBtn.addEventListener('click', async ()=>{
+  const name = await showInputModal({ title: 'New chat', label: 'Chat name', placeholder: 'Name this chat' });
+  if(!name) return; // canceled or empty
+  try{
+    const { data, error } = await supabase.from('rooms').insert([{ name, is_private: true }]).select();
+    if(error){ console.error('create', error); await showAlertModal('Failed to create chat'); return; }
+    await loadRooms();
+    if(data && data[0]) await joinRoom(data[0].id, data[0].is_private ? data[0].invite_token : null);
+  } catch(err){ console.error(err); await showAlertModal('Failed to create chat'); }
+});
 
-function showInviteLink(room){
-  // fetch invite_token from room (we might not have invite token in list)
-  (async ()=>{
-    const { data, error } = await supabase.from('rooms').select('id, name, is_private, invite_token').eq('id', room.id).limit(1).single();
-    if(error){ console.error('invite fetch', error); alert('failed to get invite'); return; }
-    const tokenPart = data.is_private ? `&token=${encodeURIComponent(data.invite_token)}` : '';
-    const link = `${location.origin}${location.pathname}?room=${data.id}${tokenPart}`;
-    prompt('Invite link (copy):', link);
-  })();
-}
-
-function persistRoomTokenLocally(roomId, token){
-  if(!roomId) return;
-  try{ localStorage.setItem(`room_token_${roomId}`, token || ''); }catch(e){}
-}
-function getLocalRoomToken(roomId){
-  try{ return localStorage.getItem(`room_token_${roomId}`) || null; }catch(e){ return null; }
-}
-
-/* JOIN & MESSAGES */
+/* join room */
 async function joinRoom(roomId, tokenFromUrl){
   if(!roomId) return;
-  // fetch room details
-  const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).limit(1).single();
-  if(error){ console.error('joinRoom fetch', error); alert('failed to join room: '+(error.message||JSON.stringify(error))); return; }
-  currentRoom = data;
-  currentRoomId = data.id;
-  // token precedence: url token -> local storage -> null
-  const localToken = getLocalRoomToken(roomId);
-  currentRoomToken = tokenFromUrl || localToken || null;
-  if(tokenFromUrl) persistRoomTokenLocally(roomId, tokenFromUrl);
-  $currentRoomName.textContent = (data.name || 'Untitled') + (data.is_private ? ' 🔒' : ' (public)');
-  // show invite UI
-  if(data.is_private){
-    $inviteContainer.innerHTML = `Private room • invite link required to write.`;
-    const link = `${location.origin}${location.pathname}?room=${data.id}&token=${encodeURIComponent(data.invite_token)}`;
-    const a = document.createElement('a'); a.href = link; a.textContent = 'Copy invite link'; a.style.marginLeft='8px';
-    a.onclick = (ev)=>{ ev.preventDefault(); navigator.clipboard?.writeText(link).then(()=>alert('link copied')); };
-    $inviteContainer.appendChild(a);
-  } else {
-    $inviteContainer.innerHTML = 'Public room';
-  }
-  // UI room highlight
-  Array.from(document.querySelectorAll('.room-item')).forEach(el=>el.classList.remove('active'));
-  const match = Array.from(document.querySelectorAll('.room-item')).find(el => el.textContent.includes(data.name || ''));
-  if(match) match.classList.add('active');
-
-  // load messages for the room
-  await loadMessagesForRoom(currentRoomId);
+  try{
+    const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).limit(1).single();
+    if(error){ console.error('joinRoom', error); await showAlertModal('Failed to join chat'); return; }
+    currentRoom = data; currentRoomId = data.id;
+    currentRoomToken = tokenFromUrl || getLocalRoomToken(roomId) || null;
+    if(tokenFromUrl) persistRoomTokenLocally(roomId, tokenFromUrl);
+    $currentRoomName.textContent = (data.name || 'Untitled') + (data.is_private ? ' 🔒' : '');
+    // clear unread
+    clearUnread(roomId);
+    renderRooms(roomsCache);
+    await loadMessagesForRoom(roomId);
+    await subscribeRealtime();
+  } catch(err){ console.error(err); await showAlertModal('Failed to join chat'); }
 }
 
+/* load messages for room */
 async function loadMessagesForRoom(roomId){
   if(!roomId) return;
-  $status.textContent = 'loading messages…';
-  const { data, error } = await supabase.from('messages')
-    .select('*')
-    .eq('room_id', roomId)
-    .order('created_at', { ascending: true })
-    .limit(500);
-  if(error){ console.error('loadMessagesForRoom', error); $status.textContent='messages error'; return; }
   clearMessages();
-  data.forEach(m => addMessageDOM(m));
-  $status.textContent = 'messages loaded';
+  const cached = loadMessagesForRoomCache(roomId);
+  if(cached && cached.length){
+    cached.forEach(m => addMessageDOM(m));
+  } else {
+    showEmptyConversation();
+  }
+  if(!navigator.onLine) return;
+  try{
+    const { data, error } = await supabase.from('messages').select('*').eq('room_id', roomId).order('created_at',{ascending:true}).limit(200);
+    if(error){ console.error('loadMessagesForRoom', error); return; }
+    if(!data || !data.length){
+      showEmptyConversation();
+    } else {
+      clearMessages();
+      data.forEach(m => addMessageDOM(m));
+      saveMessagesForRoom(roomId, data);
+    }
+  } catch(err){ console.error(err); }
 }
 
-/* realtime - listen to all inserts but show only those matching currentRoomId */
+/* realtime subscription */
+/* NOTE: fixed unread behaviour: compare room ids as strings and ignore messages that originate from the local display name */
 async function subscribeRealtime(){
-  // remove previous channel if exists
-  if(channel) await channel.unsubscribe();
-  channel = supabase
-    .channel('public:messages')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+  try{ if(channel) await channel.unsubscribe(); }catch(e){}
+  if(!currentRoomId || !navigator.onLine) return;
+  channel = supabase.channel('public:messages')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload)=>{
       const row = payload?.new;
       if(!row) return;
-      if(row.room_id === currentRoomId) {
-        // dedupe
+      // string-safe compare for room id
+      const sameRoom = String(row.room_id) === String(currentRoomId);
+      const fromLocalName = (row.username||'').toLowerCase() === getLocalName().toLowerCase();
+
+      if(sameRoom){
+        // if this message belongs to the currently open room, display it.
+        // If it is our own message (fromLocalName) we still show it but we DO NOT increment unread.
         if(row.id && document.querySelector(`[data-id="${row.id}"]`)) return;
         addMessageDOM(row);
+        // append to cache
+        const cached = loadMessagesForRoomCache(currentRoomId) || [];
+        cached.push(row);
+        saveMessagesForRoom(currentRoomId, cached);
+      } else {
+        // not the current room: only increment unread if the message is not from our local user
+        if(!fromLocalName){
+          incUnread(row.room_id);
+        }
+        // update cached last message for that room so UI shows snippet/time
+        const msgs = loadMessagesForRoomCache(row.room_id) || [];
+        msgs.push(row);
+        saveMessagesForRoom(row.room_id, msgs);
+        // update rooms list render (if room exists)
+        const roomIndex = roomsCache.findIndex(r=>String(r.id) === String(row.room_id));
+        if(roomIndex !== -1){
+          renderRooms(roomsCache);
+        }
       }
     });
   const { error } = await channel.subscribe();
-  if(error){ console.error('channel subscribe', error); $status.textContent = 'realtime error'; return; }
-  $status.textContent = 'connected (realtime)';
+  if(error){ console.error('channel', error); }
 }
 
-/* send a message with optimistic UI; include room_id and room_token if present */
-$form.addEventListener('submit', async (ev)=>{
-  ev.preventDefault();
-  const txt = $text.value.trim(); if(!txt) return;
-  if(!currentRoomId){ alert('Join a room first'); return; }
-  const name = $name.value.trim() || 'anon';
-  $text.value = '';
+/* sending messages */
+/* - Clears empty state before adding optimistic message
+   - Creates optimistic DOM with data-temp-id
+   - On success replaces the optimistic DOM with returned data (preserving 'me' layout)
+*/
+$form.addEventListener('submit', async (ev)=>{ ev.preventDefault(); await sendMessage(); });
+$sendBtn.addEventListener('click', async ()=> await sendMessage());
 
+async function sendMessage(){
+  const txt = $text.value.trim(); if(!txt) return;
+  if(!currentRoomId){ await showAlertModal('Join a chat first'); return; }
+  const name = getLocalName();
+  $text.value = '';
   const tempId = uid();
   const optimistic = { username: name, content: txt, created_at: nowIso() };
-  addMessageDOM(optimistic, { tempId, mark: 'sending…' });
+
+  // remove empty-illustration if present before optimistic add
+  const onlyEmpty = $messages.children.length === 1 && $messages.children[0].classList && $messages.children[0].classList.contains('empty-illustration');
+  if(onlyEmpty) clearMessages();
+
+  // create optimistic DOM (forceMe true so it's on right)
+  addMessageDOM(optimistic, { tempId, status: 'sending…', forceMe: true });
 
   const insertPayload = { content: txt, username: name, room_id: currentRoomId };
   if(currentRoomToken) insertPayload.room_token = currentRoomToken;
 
-  const { data, error } = await supabase.from('messages').insert([insertPayload]).select();
-
-  console.log('insert response', { data, error, tempId });
-
-  if(error){
-    console.error('insert failed', error);
-    const el = document.querySelector(`[data-temp-id="${tempId}"]`);
-    if(el){
-      const meta = el.querySelector('.meta'); if(meta) meta.textContent = (name||'anon')+' • '+formatTime(nowIso())+' • failed';
-      const body = el.querySelector('.body'); if(body) body.textContent = '⚠ failed to send: ' + (error.message || JSON.stringify(error));
-      el.setAttribute('data-send-failed','1');
+  if(!navigator.onLine){
+    const q = JSON.parse(localStorage.getItem(LS_OUTBOX) || '[]'); q.push(insertPayload); localStorage.setItem(LS_OUTBOX, JSON.stringify(q));
+    // tag optimistic as queued offline
+    const optimisticEl = document.querySelector(`[data-temp-id="${tempId}"]`);
+    if(optimisticEl){
+      const ts = optimisticEl.querySelector('.timestamp'); if(ts) ts.textContent = 'queued offline';
     }
-  } else if(data && data[0]) {
-    const returned = data[0];
-    removeOptimistic(tempId);
-    addMessageDOM(returned);
-    $status.textContent = 'message sent';
-  } else {
-    // fallback
-    const el = document.querySelector(`[data-temp-id="${tempId}"]`);
-    if(el){ el.removeAttribute('data-temp-id'); }
+    // update rooms' last snippet/time
+    updateRoomLastMessage(currentRoomId, insertPayload);
+    return;
   }
-});
 
-/* startup: parse URL params for room+token, load rooms, subscribe realtime, and auto-join if params present */
+  try{
+    const { data, error } = await supabase.from('messages').insert([insertPayload]).select();
+    if(error){
+      console.error('send', error);
+      const el = document.querySelector(`[data-temp-id="${tempId}"]`);
+      if(el){ const ts = el.querySelector('.timestamp'); if(ts) ts.textContent = 'failed'; }
+      const q = JSON.parse(localStorage.getItem(LS_OUTBOX) || '[]'); q.push(insertPayload); localStorage.setItem(LS_OUTBOX, JSON.stringify(q));
+      updateRoomLastMessage(currentRoomId, insertPayload);
+      return;
+    }
+    if(data && data[0]){
+      const returned = data[0];
+      // replace optimistic node with returned data preserving alignment
+      replaceOptimisticWithReturned(tempId, returned);
+      // update cache & rooms list
+      const cached = loadMessagesForRoomCache(currentRoomId) || [];
+      cached.push(returned); saveMessagesForRoom(currentRoomId, cached);
+      updateRoomLastMessage(currentRoomId, returned);
+    }
+  } catch(err){
+    console.error(err);
+    const q = JSON.parse(localStorage.getItem(LS_OUTBOX) || '[]'); q.push(insertPayload); localStorage.setItem(LS_OUTBOX, JSON.stringify(q));
+    updateRoomLastMessage(currentRoomId, insertPayload);
+  }
+}
+
+/* update room last message snippet and rerender rooms */
+function updateRoomLastMessage(roomId, message){
+  const cached = loadMessagesForRoomCache(roomId) || [];
+  cached.push({ ...message, created_at: message.created_at || nowIso() });
+  saveMessagesForRoom(roomId, cached);
+  renderRooms(roomsCache);
+}
+
+/* outbox flush on reconnect */
+async function flushOutbox(){
+  if(!navigator.onLine) return;
+  const q = JSON.parse(localStorage.getItem(LS_OUTBOX) || '[]');
+  if(!q.length) return;
+  const remaining = [];
+  for(const item of q){
+    try{
+      const { data, error } = await supabase.from('messages').insert([item]).select();
+      if(error || !data || !data[0]) remaining.push(item);
+      else {
+        // on success, update cache for that room
+        const cached = loadMessagesForRoomCache(item.room_id) || [];
+        cached.push(data[0]); saveMessagesForRoom(item.room_id, cached);
+      }
+    } catch(err){ remaining.push(item); }
+  }
+  localStorage.setItem(LS_OUTBOX, JSON.stringify(remaining));
+}
+window.addEventListener('online', async ()=>{ await flushOutbox(); if(currentRoomId) { await loadMessagesForRoom(currentRoomId); await subscribeRealtime(); } });
+
+/* invite link helper */
+async function showInviteLink(room){
+  try{
+    const { data, error } = await supabase.from('rooms').select('id, name, is_private, invite_token').eq('id', room.id).limit(1).single();
+    if(error){ console.error('invite fetch', error); await showAlertModal('failed to create invite'); return; }
+    const tokenPart = data.is_private ? `&token=${encodeURIComponent(data.invite_token)}` : '';
+    const link = `${location.origin}${location.pathname}?room=${data.id}${tokenPart}`;
+    await navigator.clipboard.writeText(link);
+    await showAlertModal('Invite link copied to clipboard');
+  } catch(e){ console.error(e); await showAlertModal('Failed to create invite'); }
+}
+
+/* long-press / context menu (uses modals for rename/delete) */
+function attachLongPressContext(el, room){
+  let pressTimer = null;
+  let touchPos = {x:0,y:0};
+  const menu = $contextMenu;
+  const showAt = (x,y)=>{
+    const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+    menu.style.display = 'block';
+    const rect = menu.getBoundingClientRect();
+    let left = x, top = y;
+    if(left + rect.width > vw) left = vw - rect.width - 12;
+    if(top + rect.height > vh) top = vh - rect.height - 12;
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    menu.setAttribute('data-room-id', room.id);
+    menu.setAttribute('aria-hidden','false');
+  };
+  const hide = ()=>{ menu.style.display='none'; menu.removeAttribute('data-room-id'); menu.setAttribute('aria-hidden','true'); };
+
+  el.addEventListener('touchstart', (e)=>{
+    if(e.touches.length > 1) return;
+    const t = e.touches[0];
+    touchPos.x = t.clientX; touchPos.y = t.clientY;
+    pressTimer = setTimeout(()=>{ showAt(touchPos.x, touchPos.y); }, 600);
+  }, {passive:true});
+  el.addEventListener('touchend', ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } }, {passive:true});
+  el.addEventListener('touchmove', ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } }, {passive:true});
+
+  el.addEventListener('contextmenu', (ev)=>{
+    ev.preventDefault();
+    showAt(ev.clientX, ev.clientY);
+  });
+
+  document.addEventListener('click', (ev)=>{
+    if(!ev.target.closest('.context-menu')) hide();
+  });
+  window.addEventListener('scroll', hide);
+
+  $ctxOpen.onclick = ()=>{ const id = menu.getAttribute('data-room-id'); if(id){ hide(); joinRoom(id,null);} };
+  $ctxRename.onclick = async ()=> {
+    const id = menu.getAttribute('data-room-id'); if(!id) return;
+    hide();
+    const current = roomsCache.find(r=>r.id===id);
+    const newName = await showInputModal({ title: 'Rename chat', label: 'New name', placeholder: current ? current.name : '' });
+    if(!newName) return;
+    try{
+      const { data, error } = await supabase.from('rooms').update({ name: newName }).eq('id', id).select();
+      if(error){ console.error('rename error', error); await showAlertModal('Failed to rename'); return; }
+      roomsCache = roomsCache.map(r => r.id===id ? {...r, name:newName} : r);
+      saveRoomsToCache(roomsCache);
+      renderRooms(roomsCache);
+      if(currentRoomId === id) $currentRoomName.textContent = newName;
+    } catch(err){ console.error(err); await showAlertModal('Failed to rename'); }
+  };
+  $ctxInvite.onclick = async ()=> {
+    const id = menu.getAttribute('data-room-id'); if(!id) return;
+    hide();
+    const roomObj = roomsCache.find(r=>r.id===id);
+    if(roomObj) return showInviteLink(roomObj);
+    try{
+      const { data, error } = await supabase.from('rooms').select('id, name, is_private, invite_token').eq('id', id).limit(1).single();
+      if(error) throw error;
+      const tokenPart = data.is_private ? `&token=${encodeURIComponent(data.invite_token)}` : '';
+      const link = `${location.origin}${location.pathname}?room=${data.id}${tokenPart}`;
+      await navigator.clipboard.writeText(link);
+      await showAlertModal('Invite link copied to clipboard');
+    } catch(e){ console.error(e); await showAlertModal('Failed to create invite'); }
+  };
+  $ctxDelete.onclick = async ()=> {
+    const id = menu.getAttribute('data-room-id'); if(!id) return;
+    hide();
+    const ok = await showConfirmModal('Delete chat', 'Delete this chat? This will remove it from the server.');
+    if(!ok) return;
+    try{
+      const { error } = await supabase.from('rooms').delete().eq('id', id);
+      if(error){ console.error('delete', error); await showAlertModal('Failed to delete'); return; }
+      roomsCache = roomsCache.filter(r => r.id !== id);
+      saveRoomsToCache(roomsCache);
+      localStorage.removeItem(LS_MESSAGES_PREFIX + id);
+      localStorage.removeItem('unread_' + id);
+      if(currentRoomId === id){ currentRoomId = null; currentRoom = null; clearMessages(); $currentRoomName.textContent = '—'; showEmptyConversation(); }
+      renderRooms(roomsCache);
+      await showAlertModal('Chat deleted');
+    } catch(err){ console.error(err); await showAlertModal('Failed to delete'); }
+  };
+}
+
+/* Modal utilities (promise-based) */
+function showModalHtml(html){
+  $modal.innerHTML = html;
+  $modalBackdrop.style.display = 'flex';
+  $modalBackdrop.setAttribute('aria-hidden','false');
+  return;
+}
+function closeModal(){ $modalBackdrop.style.display = 'none'; $modalBackdrop.setAttribute('aria-hidden','true'); $modal.innerHTML = ''; }
+
+/* Input modal returns text or null */
+function showInputModal({ title = 'Input', label = '', placeholder = '' }){
+  return new Promise((resolve)=>{
+    showModalHtml(`
+      <h3>${escapeHtml(title)}</h3>
+      <div class="row">
+        <label style="font-weight:700">${escapeHtml(label)}</label>
+      </div>
+      <div class="row"><input id="modalInput" type="text" placeholder="${escapeHtml(placeholder)}" /></div>
+      <div class="btns"><button class="btn secondary" id="modalCancel">Cancel</button><button class="btn primary" id="modalOk">Create</button></div>
+    `);
+    const $input = document.getElementById('modalInput');
+    const $ok = document.getElementById('modalOk');
+    const $cancel = document.getElementById('modalCancel');
+    $input.focus();
+    const finish = (val) => { closeModal(); resolve(val); };
+    $ok.onclick = ()=> finish($input.value.trim() || null);
+    $cancel.onclick = ()=> finish(null);
+    $input.addEventListener('keydown', (e)=> { if(e.key === 'Enter') $ok.click(); if(e.key === 'Escape') $cancel.click(); });
+  });
+}
+
+/* Confirm modal returns boolean */
+function showConfirmModal(title, message){
+  return new Promise((resolve)=>{
+    showModalHtml(`<h3>${escapeHtml(title)}</h3><p style="color:var(--muted);margin-top:8px">${escapeHtml(message)}</p><div class="btns"><button class="btn secondary" id="modalNo">Cancel</button><button class="btn primary" id="modalYes">Delete</button></div>`);
+    document.getElementById('modalYes').onclick = ()=> { closeModal(); resolve(true); };
+    document.getElementById('modalNo').onclick = ()=> { closeModal(); resolve(false); };
+  });
+}
+
+/* simple alert modal that resolves when closed */
+function showAlertModal(message){
+  return new Promise((resolve)=>{
+    showModalHtml(`<h3>Notice</h3><p style="color:var(--muted);margin-top:8px">${escapeHtml(message)}</p><div class="btns"><button class="btn primary" id="modalOk">OK</button></div>`);
+    document.getElementById('modalOk').onclick = ()=> { closeModal(); resolve(); };
+  });
+}
+
+function escapeHtml(s){ return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* start up */
 (async function init(){
+  // quick cached rooms
+  const cached = loadRoomsFromCache();
+  if(cached){ roomsCache = cached; renderRooms(roomsCache); }
   await loadRooms();
-  await subscribeRealtime();
 
-  // check URL params
   const params = new URLSearchParams(location.search);
-  const room = params.get('room');
-  const token = params.get('token');
-  if(room){
-    // if token present, persist it for the room
-    if(token) persistRoomTokenLocally(room, token);
-    // attempt to join
-    await joinRoom(room, token);
-  } else {
-    // auto-join first room if exists
-    const firstRoomEl = $rooms.querySelector('.room-item');
-    if(firstRoomEl){
-      // find its index by element order -> use rooms list reload (we can requery)
-      const { data } = await supabase.from('rooms').select('id').order('created_at',{ascending:true}).limit(1);
-      if(data && data[0]) joinRoom(data[0].id, getLocalRoomToken(data[0].id));
-    }
-  }
+  const room = params.get('room'); const token = params.get('token');
+  if(room && token) persistRoomTokenLocally(room, token);
+  if(room) await joinRoom(room, token);
+  else if(roomsCache[0]) await joinRoom(roomsCache[0].id, getLocalRoomToken(roomsCache[0].id));
 
-  // wire UI buttons
-  $createRoomBtn.onclick = createRoom;
-  $refreshRoomsBtn.onclick = loadRooms;
+  // send via enter
+  $text.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') { e.preventDefault(); sendMessage(); } });
 
-  $status.textContent = 'ready';
+  // hide modal on backdrop click (cancel)
+  $modalBackdrop.addEventListener('click', (ev)=>{ if(ev.target === $modalBackdrop){ closeModal(); }});
 })();
+
+/* PWA manifest + sw (kept minimal) */
+const manifestData = {
+  name: 'Yap',
+  short_name: 'Yap',
+  start_url: '.',
+  display: 'standalone',
+  background_color: '#071023',
+  theme_color: '#071023',
+  icons: [
+    { src: 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="100%" height="100%" rx="28" fill="#06b6d4"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="74" font-family="Arial" fill="#012335">Y</text></svg>`), sizes: '192x192', type: 'image/svg+xml' }
+  ]
+};
+const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+const manifestURL = URL.createObjectURL(manifestBlob);
+document.getElementById('manifest-placeholder').setAttribute('href', manifestURL);
+
+const swCode = `const CACHE_NAME='yap-chat-v1';self.addEventListener('install',e=>{self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim());});self.addEventListener('fetch',e=>{if(e.request.method!=='GET') return; e.respondWith(caches.match(e.request).then(r=>r || fetch(e.request).then(res=>{try{const c=res.clone(); caches.open(CACHE_NAME).then(cache=>cache.put(e.request, c));}catch(err){} return res;})).catch(()=>{}));});`;
+const swBlob = new Blob([swCode], { type: 'application/javascript' });
+const swURL = URL.createObjectURL(swBlob);
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register(swURL).then(()=>console.log('sw registered')).catch(e=>console.warn('sw failed', e));
+}
 </script>
 </body>
 </html>
