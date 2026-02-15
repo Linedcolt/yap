@@ -3,307 +3,183 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Minimal Realtime Chat</title>
-<link rel="icon" href="data:," />
+<title>Supabase Chat — Single File PWA</title>
 <style>
-  :root{
-    --bg:#0f1720; --panel:#0b1220; --muted:#94a3b8; --accent:#8be9fd;
-    --glass: rgba(255,255,255,0.03);
-    --radius:12px;
-    --shadow: 0 6px 20px rgba(2,6,23,0.6);
-    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  }
-  html,body{height:100%;margin:0;background:linear-gradient(180deg,#071024 0%, #041022 100%);color:#e6eef6}
-  .app{max-width:1000px;margin:32px auto;display:grid;grid-template-columns:280px 1fr;gap:20px;padding:20px;}
-  .panel{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-  header{display:flex;align-items:center;gap:12px;padding:18px;border-bottom:1px solid rgba(255,255,255,0.03)}
-  header h1{font-size:15px;margin:0;letter-spacing:0.2px}
-  .rooms{padding:12px;display:flex;flex-direction:column;gap:8px;height:520px;overflow:auto}
-  .room{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:10px;cursor:pointer}
-  .room:hover{background:var(--glass)}
-  .room.active{background:linear-gradient(90deg, rgba(139,233,253,0.08), rgba(139,233,253,0.02));outline:1px solid rgba(139,233,253,0.09)}
-  .controls{padding:12px;border-top:1px solid rgba(255,255,255,0.03);display:flex;gap:8px}
-  .btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 10px;border-radius:10px;color:var(--muted);cursor:pointer}
-  .btn.primary{background:linear-gradient(90deg,#7ee7f7,#64b6ff);color:#042433;border:0}
-  .main{display:flex;flex-direction:column;height:520px}
-  .messages{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
-  .msg{max-width:78%;padding:10px;border-radius:10px;background:rgba(255,255,255,0.03);font-size:14px}
-  .msg .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
-  .composer{display:flex;padding:12px;border-top:1px solid rgba(255,255,255,0.03);gap:8px;align-items:center}
-  .input, .input-plain{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:10px;border-radius:10px;color:inherit;flex:1}
-  .small{font-size:13px;color:var(--muted)}
-  .topbar{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid rgba(255,255,255,0.03)}
-  .invite{display:flex;gap:8px;align-items:center}
-  .copy{font-size:13px;padding:6px 10px;border-radius:8px;border:0;background:rgba(255,255,255,0.03);cursor:pointer;color:var(--muted)}
-  .note{padding:10px;font-size:13px;color:var(--muted);text-align:center}
-  @media (max-width:880px){ .app{grid-template-columns:1fr; padding:12px} .panel{max-height:unset} }
+  :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8; color-scheme:dark}
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;background:linear-gradient(180deg,#071023 0%, #081426 100%);color:#e6eef6}
+  .app{max-width:800px;margin:24px auto;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
+  header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+  h1{font-size:18px;margin:0}
+  .messages{height:60vh;overflow:auto;padding:12px;border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.06));margin-bottom:12px}
+  .msg{padding:8px 10px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.02)}
+  .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
+  form{display:flex;gap:8px}
+  input[type=text]{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  button{padding:10px 12px;border-radius:8px;border:none;background:var(--accent);color:#012335;font-weight:600}
+  .tiny{font-size:12px;color:var(--muted);margin-top:8px}
+  footer{font-size:12px;color:var(--muted);margin-top:12px;text-align:center}
+  .offline{color:#ffcc00}
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="panel" id="left">
+  <div class="app" role="main">
     <header>
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style="opacity:0.95">
-        <rect x="2" y="3" width="20" height="18" rx="3" fill="url(#g)"></rect>
-        <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#8be9fd"/><stop offset="1" stop-color="#64b6ff"/></linearGradient></defs>
-      </svg>
-      <div>
-        <h1 style="font-weight:600">Realtime Chat</h1>
-        <div class="small">Minimal, invite links</div>
-      </div>
+      <h1>Supabase chat — demo</h1>
+      <div style="margin-left:auto;font-size:12px;color:var(--muted)"><span id="status">connecting…</span></div>
     </header>
 
-    <div class="rooms" id="roomsList">
-      <!-- rooms populated here -->
+    <div>
+      <label style="font-size:12px;color:var(--muted)">Name (optional)</label>
+      <input id="name" type="text" placeholder="Your name (e.g. Ki Wi)" />
     </div>
 
-    <div class="controls">
-      <input id="newRoomName" class="input-plain" placeholder="New room name" />
-      <button id="createRoomBtn" class="btn primary">Create</button>
-    </div>
+    <div class="messages" id="messages" aria-live="polite"></div>
+
+    <form id="sendForm">
+      <input id="text" type="text" placeholder="Type a message" autocomplete="off" />
+      <button type="submit">Send</button>
+    </form>
+
+    <div class="tiny">This demo stores messages in a public `messages` table. Use for testing only.</div>
+    <footer>Single-file PWA demo • Works offline (cached shell) • Not hardened for production</footer>
   </div>
-
-  <div class="panel main" id="right">
-    <div class="topbar">
-      <div>
-        <div id="roomTitle" style="font-weight:600">No room selected</div>
-        <div class="small" id="roomMeta">Create or join a room to start chatting</div>
-      </div>
-      <div class="invite">
-        <input id="inviteLink" class="input-plain" readonly style="max-width:240px" />
-        <button id="copyInvite" class="copy">Copy</button>
-      </div>
-    </div>
-
-    <div class="messages" id="messages" aria-live="polite">
-      <div class="note">Select or create a room</div>
-    </div>
-
-    <div class="composer">
-      <input id="nameInput" class="input" placeholder="Your name (optional)" />
-      <input id="msgInput" class="input" placeholder="Type a message and press Enter" />
-      <button id="sendBtn" class="btn primary">Send</button>
-    </div>
-  </div>
-</div>
 
 <script type="module">
-  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.34.0/dist/module/supabase.js';
+/* ================== CONFIG: set these from your Supabase project ==================
+   - SUPABASE_URL: your_project.supabase.co
+   - SUPABASE_ANON_KEY: the anon/public key (ok for client reads/inserts if policies allow)
+   You can also replace these with environment injection on server hosting.
+*/
+const SUPABASE_URL = 'https://REPLACE_WITH_YOUR.supabase.co';
+const SUPABASE_ANON_KEY = 'REPLACE_WITH_ANON_KEY';
 
-  // --- CONFIGURE THESE ---
-  const SUPABASE_URL = 'https://sstnlfqhitdbajrlaxao.supabase.co';        // replace
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzdG5sZnFoaXRkYmFqcmxheGFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNzUyNzEsImV4cCI6MjA4NjY1MTI3MX0.ajIS5ilF5h4eg7t5O3iAvgy6pCN_hheyDvfFdR0kmyE';                  // replace
-  // -----------------------
+/* ----------------- note about CDN: using esm.sh tends to be reliable for quick demos.
+   If you bundle in production, install @supabase/supabase-js locally. ----------------*/
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    realtime: { params: { eventsPerSecond: 25 } }
-  });
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  // persistSession: false, // choose your preference
+});
 
-  // DOM
-  const roomsList = document.getElementById('roomsList');
-  const messagesEl = document.getElementById('messages');
-  const roomTitle = document.getElementById('roomTitle');
-  const roomMeta = document.getElementById('roomMeta');
-  const inviteLinkInput = document.getElementById('inviteLink');
-  const copyInviteBtn = document.getElementById('copyInvite');
+const $messages = document.getElementById('messages');
+const $status = document.getElementById('status');
+const $form = document.getElementById('sendForm');
+const $text = document.getElementById('text');
+const $name = document.getElementById('name');
 
-  const newRoomName = document.getElementById('newRoomName');
-  const createRoomBtn = document.getElementById('createRoomBtn');
+function formatTime(ts){
+  try{ return new Date(ts).toLocaleTimeString(); } catch(e){ return ''; }
+}
 
-  const nameInput = document.getElementById('nameInput');
-  const msgInput = document.getElementById('msgInput');
-  const sendBtn = document.getElementById('sendBtn');
+function addMessage(m, top=false){
+  const el = document.createElement('div');
+  el.className = 'msg';
+  const meta = document.createElement('div'); meta.className='meta';
+  meta.textContent = (m.username || 'anon') + ' • ' + formatTime(m.created_at || m.createdAt || m.createdAt);
+  const body = document.createElement('div'); body.textContent = m.content;
+  el.appendChild(meta); el.appendChild(body);
+  if(top) $messages.prepend(el); else $messages.appendChild(el);
+  // keep scroll near bottom
+  $messages.scrollTop = $messages.scrollHeight;
+}
 
-  let currentRoom = null;
-  let channel = null;
-  let knownMessageIds = new Set();
-
-  // Helpers
-  function qs(name){ return new URLSearchParams(location.search).get(name); }
-  function showError(e){ console.error(e); alert('Error: ' + (e?.message || e)); }
-
-  // load rooms
-  async function fetchRooms(){
-    try {
-      const { data, error } = await supabase
-        .from('rooms')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      renderRooms(data || []);
-    } catch (e) { showError(e) }
+/* load recent messages */
+async function loadMessages(){
+  $status.textContent = 'loading messages…';
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .order('created_at', { ascending: true })
+    .limit(200);
+  if(error){
+    console.error(error);
+    $status.textContent = 'error loading';
+    return;
   }
+  $messages.innerHTML = '';
+  data.forEach(m => addMessage(m));
+  $status.textContent = 'connected';
+}
 
-  function renderRooms(list){
-    roomsList.innerHTML = '';
-    if (!list.length) roomsList.innerHTML = '<div class="note">No rooms yet — create one.</div>';
-    list.forEach(r=>{
-      const el = document.createElement('div');
-      el.className = 'room';
-      el.dataset.id = r.id;
-      el.innerHTML = `<div><strong>${escapeHtml(r.name || 'Untitled')}</strong><div class="small">${new Date(r.created_at).toLocaleString()}</div></div>
-                      <div style="display:flex;gap:8px;align-items:center">
-                        <button class="btn" data-action="invite">Invite</button>
-                      </div>`;
-      el.addEventListener('click', (ev)=>{
-        if (ev.target.dataset.action === 'invite') {
-          navigator.clipboard.writeText(makeInviteLink(r.id)).then(()=> alert('Invite copied'));
-          return;
-        }
-        joinRoom(r.id, r.name);
-      });
-      roomsList.appendChild(el);
+/* subscribe to realtime inserts using a channel + postgres_changes */
+function subscribeRealtime(){
+  const channel = supabase
+    .channel('public:messages') // a descriptive name
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+      if(payload && payload.new) addMessage(payload.new);
+    })
+    .subscribe((status) => {
+      // status gives alive / connected info
+      console.log('channel status', status);
     });
-    // auto-select room from URL param if present
-    const roomFromUrl = qs('r');
-    if (roomFromUrl) {
-      const found = list.find(x=>x.id === roomFromUrl);
-      if (found) joinRoom(found.id, found.name);
-      else {
-        // If not in first page, still try to open by fetching the room directly
-        loadRoomById(roomFromUrl).then(room => { if (room) joinRoom(room.id, room.name); });
-      }
-    }
-  }
 
-  async function loadRoomById(id){
+  // handle connection lost / reconnected for UI:
+  supabase.on('connection', ({ state }) => {
+    $status.textContent = state === 'CONNECTED' ? 'connected' : state.toLowerCase();
+  });
+}
+
+/* send a message */
+$form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const txt = $text.value.trim();
+  const name = $name.value.trim() || 'anon';
+  if(!txt) return;
+  $text.value = '';
+  // optimistic UI
+  addMessage({ username: name, content: txt, created_at: new Date().toISOString() }, false);
+
+  const { error } = await supabase.from('messages').insert([{ content: txt, username: name }]);
+  if(error){
+    console.error('insert error', error);
+    // you might show UI feedback or retry
+  }
+});
+
+/* basic startup */
+(async function init(){
+  // register a tiny service worker from a blob so file stays single-file
+  if('serviceWorker' in navigator){
     try {
-      const { data, error } = await supabase.from('rooms').select('*').eq('id', id).single();
-      if (error) return null;
-      return data;
-    } catch(e){ return null }
+      const swCode = `
+self.addEventListener('install', (evt)=> evt.waitUntil(caches.open('chat-shell-v1').then(c=>c.addAll(['/']))));
+self.addEventListener('activate', (evt)=> evt.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', (evt)=>{
+  if(evt.request.mode === 'navigate'){
+    evt.respondWith(caches.open('chat-shell-v1').then(c=>c.match('/')).then(res=>res || fetch(evt.request)));
+  } else {
+    evt.respondWith(fetch(evt.request).catch(()=>caches.match(evt.request)));
+  }
+});
+`;
+      const blob = new Blob([swCode], {type:'text/javascript'});
+      const swUrl = URL.createObjectURL(blob);
+      await navigator.serviceWorker.register(swUrl);
+      console.log('SW registered from blob');
+    } catch(e){ console.warn('SW not registered', e); }
   }
 
-  function makeInviteLink(roomId){
-    const url = new URL(location.href);
-    url.searchParams.set('r', roomId);
-    return url.toString();
-  }
+  // inlined manifest so still single-file PWA
+  try {
+    const manifest = {
+      name: 'Supabase Chat (demo)',
+      short_name: 'ChatDemo',
+      start_url: '.',
+      display: 'standalone',
+      background_color: '#071023',
+      theme_color: '#06b6d4'
+    };
+    const manBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+    const manUrl = URL.createObjectURL(manBlob);
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = manUrl;
+    document.head.appendChild(link);
+  } catch(e){ /* ignore */ }
 
-  async function createRoom(){
-    const name = (newRoomName.value || 'Untitled').trim();
-    if (!name) return;
-    try {
-      const { data, error } = await supabase.from('rooms').insert([{ name, creator: name }]).select().single();
-      if (error) throw error;
-      newRoomName.value = '';
-      fetchRooms();
-      joinRoom(data.id, data.name);
-      // copy invite automatically
-      const link = makeInviteLink(data.id);
-      inviteLinkInput.value = link;
-      navigator.clipboard?.writeText(link).catch(()=>{});
-      alert('Room created — invite link copied to clipboard');
-    } catch(e){ showError(e) }
-  }
-
-  createRoomBtn.addEventListener('click', createRoom);
-  newRoomName.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') createRoom(); });
-
-  // join room
-  async function joinRoom(roomId, roomName){
-    if (!roomId) return;
-    // if already in same room, ignore
-    if (currentRoom === roomId) return;
-    // unsubscribe from previous channel
-    if (channel) {
-      try { await channel.unsubscribe(); } catch(e){ /* ignore */ }
-      channel = null;
-    }
-    currentRoom = roomId;
-    knownMessageIds.clear();
-    // highlight selected room in UI
-    document.querySelectorAll('.room').forEach(el=>el.classList.toggle('active', el.dataset.id === roomId));
-    roomTitle.textContent = roomName || 'Room';
-    roomMeta.textContent = `Room id: ${roomId}`;
-    inviteLinkInput.value = makeInviteLink(roomId);
-
-    // load recent messages
-    messagesEl.innerHTML = '<div class="note">Loading messages…</div>';
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('room', roomId)
-        .order('created_at', { ascending: true })
-        .limit(200);
-      if (error) throw error;
-      messagesEl.innerHTML = '';
-      (data || []).forEach(renderMessage);
-      scrollToBottom();
-    } catch(e){ showError(e) }
-
-    // subscribe to realtime inserts for this room
-    channel = supabase.channel('public:messages:room:' + roomId)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${roomId}` },
-          payload => {
-            renderMessage(payload.new);
-            scrollToBottom();
-          })
-      .subscribe((status) => {
-        // optional: status = 'SUBSCRIBED'
-        // console.log('channel status', status);
-      });
-  }
-
-  function renderMessage(m) {
-    if (!m) return;
-    if (knownMessageIds.has(String(m.id))) return;
-    knownMessageIds.add(String(m.id));
-    const el = document.createElement('div');
-    el.className = 'msg';
-    el.innerHTML = `<div class="meta"><strong>${escapeHtml(m.sender_name || 'anon')}</strong> · ${new Date(m.created_at).toLocaleTimeString()}</div>
-                    <div class="body">${escapeHtml(m.content)}</div>`;
-    messagesEl.appendChild(el);
-  }
-
-  function scrollToBottom(){
-    setTimeout(()=>{ messagesEl.scrollTop = messagesEl.scrollHeight; }, 10);
-  }
-
-  async function sendMessage(){
-    if (!currentRoom) { alert('Select a room first'); return; }
-    const text = (msgInput.value || '').trim();
-    if (!text) return;
-    const sender = (nameInput.value || '').trim() || 'anon';
-    msgInput.value = '';
-    try {
-      // insert message; realtime will deliver it back to all clients
-      const { error } = await supabase.from('messages').insert([{ room: currentRoom, content: text, sender_name: sender }]);
-      if (error) throw error;
-    } catch(e){ showError(e) }
-  }
-
-  sendBtn.addEventListener('click', sendMessage);
-  msgInput.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') sendMessage(); });
-  copyInviteBtn.addEventListener('click', ()=>{ navigator.clipboard.writeText(inviteLinkInput.value).then(()=>{ copyInviteBtn.textContent = 'Copied'; setTimeout(()=>copyInviteBtn.textContent='Copy',900); }); });
-
-  function escapeHtml(s){
-    return String(s)
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;')
-      .replaceAll('"','&quot;')
-      .replaceAll("'",'&#39;')
-      .replaceAll('\n','<br>');
-  }
-
-  // bootstrap
-  (async function init(){
-    await fetchRooms();
-
-    // If the URL has ?r=roomId, handled in fetchRooms render; but also try to auto-join if param exists and rooms list empty
-    const roomFromUrl = qs('r');
-    if (roomFromUrl && !currentRoom) {
-      const r = await loadRoomById(roomFromUrl);
-      if (r) joinRoom(r.id, r.name);
-      else {
-        // show invite link even if room not found locally
-        inviteLinkInput.value = makeInviteLink(roomFromUrl);
-      }
-    }
-  })();
+  await loadMessages();
+  subscribeRealtime();
+})();
 </script>
 </body>
 </html>
