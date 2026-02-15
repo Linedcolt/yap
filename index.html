@@ -3,45 +3,81 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Supabase Chat — Debug</title>
+<title>Supabase Chat — Rooms & Invites</title>
 <style>
-  :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8; color-scheme:dark}
-  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;background:linear-gradient(180deg,#071023 0%, #081426 100%);color:#e6eef6}
-  .app{max-width:800px;margin:24px auto;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
+  :root{--bg:#071023;--card:#081426;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#071023 0%, #081426 100%);color:#e6eef6}
+  .app{max-width:980px;margin:18px auto;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
   header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
   h1{font-size:18px;margin:0}
-  .messages{height:60vh;overflow:auto;padding:12px;border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.06));margin-bottom:12px}
-  .msg{padding:8px 10px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.02)}
+  .cols{display:flex;gap:12px}
+  .col{flex:1;min-width:260px}
+  .pane{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px}
+  .rooms {max-height:36vh;overflow:auto;margin-bottom:12px}
+  .messages{height:48vh;overflow:auto;padding:12px;border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.03));margin-bottom:12px}
+  .msg{padding:8px 10px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.015)}
   .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
-  form{display:flex;gap:8px}
-  input[type=text]{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
-  button{padding:10px 12px;border-radius:8px;border:none;background:var(--accent);color:#012335;font-weight:600}
+  form{display:flex;gap:8px;margin-top:8px}
+  input[type=text], input[type=url]{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  button{padding:8px 10px;border-radius:8px;border:none;background:var(--accent);color:#012335;font-weight:600}
   .tiny{font-size:12px;color:var(--muted);margin-top:8px}
-  footer{font-size:12px;color:var(--muted);margin-top:12px;text-align:center}
-  .offline{color:#ffcc00}
+  label{display:block;margin-bottom:6px;color:var(--muted);font-size:13px}
+  .room-item{padding:8px;border-radius:8px;cursor:pointer;margin-bottom:8px;background:rgba(255,255,255,0.01)}
+  .room-item.active{outline:2px solid rgba(6,182,212,0.16)}
+  .small{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
   <div class="app" role="main">
     <header>
-      <h1>Supabase chat — demo</h1>
+      <h1>Supabase Chat — Rooms & Invites</h1>
       <div style="margin-left:auto;font-size:12px;color:var(--muted)"><span id="status">connecting…</span></div>
     </header>
 
-    <div>
-      <label style="font-size:12px;color:var(--muted)">Name (optional)</label>
-      <input id="name" type="text" placeholder="Your name (e.g. Ki Wi)" />
+    <div class="cols">
+      <div class="col">
+        <div class="pane">
+          <label>Rooms</label>
+          <div id="rooms" class="rooms"></div>
+
+          <label>Create room</label>
+          <input id="roomName" type="text" placeholder="Room name" />
+          <label style="margin-top:6px"><input id="roomPrivate" type="checkbox" /> Private room (invite link required)</label>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="createRoomBtn">Create</button>
+            <button id="refreshRoomsBtn">Refresh</button>
+          </div>
+
+          <div class="tiny" style="margin-top:10px">Click a room to join. Private rooms require an invite link.</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:2">
+        <div class="pane">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+            <div>
+              <div class="small">Current room</div>
+              <div id="currentRoomName">—</div>
+            </div>
+            <div style="margin-left:auto">
+              <input id="name" type="text" placeholder="Your name (optional)" />
+            </div>
+          </div>
+
+          <div id="inviteContainer" class="small tiny" style="margin-bottom:8px"></div>
+
+          <div id="messages" class="messages" aria-live="polite"></div>
+
+          <form id="sendForm">
+            <input id="text" type="text" placeholder="Type a message" autocomplete="off" />
+            <button type="submit">Send</button>
+          </form>
+          <div class="tiny" style="margin-top:8px">Messages are scoped to the selected room.</div>
+        </div>
+      </div>
     </div>
 
-    <div class="messages" id="messages" aria-live="polite"></div>
-
-    <form id="sendForm">
-      <input id="text" type="text" placeholder="Type a message" autocomplete="off" />
-      <button type="submit">Send</button>
-    </form>
-
-    <div class="tiny">This demo stores messages in a public `messages` table. Use for testing only.</div>
-    <footer>Single-file demo • Not hardened for production</footer>
+    <footer style="margin-top:12px" class="tiny">Rooms demo • Not hardened for production</footer>
   </div>
 
 <script type="module">
@@ -53,162 +89,246 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const $messages = document.getElementById('messages');
 const $status = document.getElementById('status');
+const $rooms = document.getElementById('rooms');
+const $createRoomBtn = document.getElementById('createRoomBtn');
+const $refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
+const $roomName = document.getElementById('roomName');
+const $roomPrivate = document.getElementById('roomPrivate');
+const $currentRoomName = document.getElementById('currentRoomName');
+const $inviteContainer = document.getElementById('inviteContainer');
+const $messages = document.getElementById('messages');
 const $form = document.getElementById('sendForm');
 const $text = document.getElementById('text');
 const $name = document.getElementById('name');
 
+let currentRoomId = null;
+let currentRoomToken = null;
+let currentRoom = null;
+let channel = null;
+
+/* utils */
 function nowIso(){ return new Date().toISOString(); }
-function uid(){
-  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
-  // fallback
-  return 'tmp-' + Date.now().toString(36) + '-' + Math.floor(Math.random()*1e6).toString(36);
-}
+function uid(){ if(window.crypto && crypto.randomUUID) return crypto.randomUUID(); return 'tmp-' + Date.now().toString(36); }
+function formatTime(ts){ try{ return new Date(ts).toLocaleTimeString(); } catch(e){ return ''; } }
 
-function formatTime(ts){
-  try{ return new Date(ts).toLocaleTimeString(); } catch(e){ return ''; }
-}
-
-/* Create or update message DOM element.
-   m may be optimistic (no id, has tempId) or server row (has id).
-   options.mark: optional string to append to meta (e.g. 'sending…' or 'failed').
-*/
-function addMessage(m, opts = {}) {
-  // if server row and already present (by id), skip to avoid duplicate
-  if (m.id && document.querySelector(`[data-id="${m.id}"]`)) return;
-
-  // if optimistic and exists, update it instead of creating new
-  if (opts.tempId) {
+/* DOM helpers */
+function clearMessages(){ $messages.innerHTML = ''; }
+function addMessageDOM(m, opts={}) {
+  if(m.id && document.querySelector(`[data-id="${m.id}"]`)) return;
+  if(opts.tempId){
     const existing = document.querySelector(`[data-temp-id="${opts.tempId}"]`);
-    if (existing) {
-      // update its meta/message
+    if(existing){
       const meta = existing.querySelector('.meta');
-      if (meta) meta.textContent = (m.username || 'anon') + ' • ' + formatTime(m.created_at || nowIso()) + (opts.mark ? ' • ' + opts.mark : '');
+      if(meta) meta.textContent = (m.username||'anon')+' • '+formatTime(m.created_at||nowIso()) + (opts.mark? ' • '+opts.mark: '');
       const body = existing.querySelector('.body');
-      if (body) body.textContent = m.content;
+      if(body) body.textContent = m.content;
       return existing;
     }
   }
-
-  const el = document.createElement('div');
-  el.className = 'msg';
-  if (m.id) el.setAttribute('data-id', m.id);
-  if (opts.tempId) el.setAttribute('data-temp-id', opts.tempId);
-
+  const el = document.createElement('div'); el.className='msg';
+  if(m.id) el.setAttribute('data-id', m.id);
+  if(opts.tempId) el.setAttribute('data-temp-id', opts.tempId);
   const meta = document.createElement('div'); meta.className='meta';
-  meta.textContent = (m.username || 'anon') + ' • ' + formatTime(m.created_at || nowIso()) + (opts.mark ? ' • ' + opts.mark : '');
-  const body = document.createElement('div'); body.className = 'body'; body.textContent = m.content;
-
+  meta.textContent = (m.username||'anon')+' • '+formatTime(m.created_at||nowIso()) + (opts.mark? ' • '+opts.mark: '');
+  const body = document.createElement('div'); body.className='body'; body.textContent = m.content;
   el.appendChild(meta); el.appendChild(body);
   $messages.appendChild(el);
   $messages.scrollTop = $messages.scrollHeight;
   return el;
 }
+function removeOptimistic(tempId){ const el = document.querySelector(`[data-temp-id="${tempId}"]`); if(el) el.remove(); }
 
-function removeOptimistic(tempId){
-  const el = document.querySelector(`[data-temp-id="${tempId}"]`);
-  if(el) el.remove();
+/* ROOM FUNCTIONS */
+async function loadRooms(){
+  $status.textContent = 'loading rooms…';
+  const { data, error } = await supabase.from('rooms').select('*').order('created_at', { ascending: true }).limit(200);
+  if(error){ console.error('loadRooms error', error); $status.textContent = 'rooms error'; return; }
+  $rooms.innerHTML = '';
+  data.forEach(r=>{
+    const el = document.createElement('div');
+    el.className = 'room-item' + (currentRoomId === r.id ? ' active':'');
+    el.textContent = (r.name || 'Untitled') + (r.is_private ? ' 🔒' : '');
+    el.addEventListener('click', ()=> joinRoom(r.id, null));
+    // attach quick invite button
+    const inv = document.createElement('button');
+    inv.textContent = 'Invite';
+    inv.style.float='right';
+    inv.onclick = (ev) => { ev.stopPropagation(); showInviteLink(r); };
+    el.appendChild(inv);
+    $rooms.appendChild(el);
+  });
+  $status.textContent = 'rooms loaded';
 }
 
-/* load recent messages */
-async function loadMessages(){
-  $status.textContent = 'loading messages…';
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .order('created_at', { ascending: true })
-    .limit(200);
-  if(error){
-    console.error('loadMessages error', error);
-    $status.textContent = 'error loading (see console)';
-    return;
+async function createRoom(){
+  const name = $roomName.value.trim() || 'Room';
+  const is_private = !!$roomPrivate.checked;
+  $createRoomBtn.disabled = true;
+  const { data, error } = await supabase.from('rooms').insert([{ name, is_private }]).select();
+  $createRoomBtn.disabled = false;
+  if(error){ console.error('createRoom error', error); alert('failed to create: '+error.message); return; }
+  const room = data[0];
+  // auto-join the new room and show invite link if private
+  await loadRooms();
+  joinRoom(room.id, room.is_private ? room.invite_token : null);
+  $roomName.value = '';
+  $roomPrivate.checked = false;
+}
+
+function showInviteLink(room){
+  // fetch invite_token from room (we might not have invite token in list)
+  (async ()=>{
+    const { data, error } = await supabase.from('rooms').select('id, name, is_private, invite_token').eq('id', room.id).limit(1).single();
+    if(error){ console.error('invite fetch', error); alert('failed to get invite'); return; }
+    const tokenPart = data.is_private ? `&token=${encodeURIComponent(data.invite_token)}` : '';
+    const link = `${location.origin}${location.pathname}?room=${data.id}${tokenPart}`;
+    prompt('Invite link (copy):', link);
+  })();
+}
+
+function persistRoomTokenLocally(roomId, token){
+  if(!roomId) return;
+  try{ localStorage.setItem(`room_token_${roomId}`, token || ''); }catch(e){}
+}
+function getLocalRoomToken(roomId){
+  try{ return localStorage.getItem(`room_token_${roomId}`) || null; }catch(e){ return null; }
+}
+
+/* JOIN & MESSAGES */
+async function joinRoom(roomId, tokenFromUrl){
+  if(!roomId) return;
+  // fetch room details
+  const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).limit(1).single();
+  if(error){ console.error('joinRoom fetch', error); alert('failed to join room: '+(error.message||JSON.stringify(error))); return; }
+  currentRoom = data;
+  currentRoomId = data.id;
+  // token precedence: url token -> local storage -> null
+  const localToken = getLocalRoomToken(roomId);
+  currentRoomToken = tokenFromUrl || localToken || null;
+  if(tokenFromUrl) persistRoomTokenLocally(roomId, tokenFromUrl);
+  $currentRoomName.textContent = (data.name || 'Untitled') + (data.is_private ? ' 🔒' : ' (public)');
+  // show invite UI
+  if(data.is_private){
+    $inviteContainer.innerHTML = `Private room • invite link required to write.`;
+    const link = `${location.origin}${location.pathname}?room=${data.id}&token=${encodeURIComponent(data.invite_token)}`;
+    const a = document.createElement('a'); a.href = link; a.textContent = 'Copy invite link'; a.style.marginLeft='8px';
+    a.onclick = (ev)=>{ ev.preventDefault(); navigator.clipboard?.writeText(link).then(()=>alert('link copied')); };
+    $inviteContainer.appendChild(a);
+  } else {
+    $inviteContainer.innerHTML = 'Public room';
   }
-  $messages.innerHTML = '';
-  data.forEach(m => addMessage(m));
-  $status.textContent = 'loaded';
+  // UI room highlight
+  Array.from(document.querySelectorAll('.room-item')).forEach(el=>el.classList.remove('active'));
+  const match = Array.from(document.querySelectorAll('.room-item')).find(el => el.textContent.includes(data.name || ''));
+  if(match) match.classList.add('active');
+
+  // load messages for the room
+  await loadMessagesForRoom(currentRoomId);
 }
 
-/* subscribe to realtime inserts using a channel + postgres_changes */
-let channel = null;
+async function loadMessagesForRoom(roomId){
+  if(!roomId) return;
+  $status.textContent = 'loading messages…';
+  const { data, error } = await supabase.from('messages')
+    .select('*')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: true })
+    .limit(500);
+  if(error){ console.error('loadMessagesForRoom', error); $status.textContent='messages error'; return; }
+  clearMessages();
+  data.forEach(m => addMessageDOM(m));
+  $status.textContent = 'messages loaded';
+}
+
+/* realtime - listen to all inserts but show only those matching currentRoomId */
 async function subscribeRealtime(){
+  // remove previous channel if exists
+  if(channel) await channel.unsubscribe();
   channel = supabase
     .channel('public:messages')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
       const row = payload?.new;
       if(!row) return;
-      // skip if we already have this id (prevents duplication if we already added returned row)
-      if (row.id && document.querySelector(`[data-id="${row.id}"]`)) return;
-      addMessage(row);
+      if(row.room_id === currentRoomId) {
+        // dedupe
+        if(row.id && document.querySelector(`[data-id="${row.id}"]`)) return;
+        addMessageDOM(row);
+      }
     });
-
   const { error } = await channel.subscribe();
-  if(error){
-    console.error('channel subscribe error', error);
-    $status.textContent = 'realtime error';
-    return;
-  }
-  console.log('channel status SUBSCRIBED');
+  if(error){ console.error('channel subscribe', error); $status.textContent = 'realtime error'; return; }
   $status.textContent = 'connected (realtime)';
 }
 
-/* send a message (with optimistic UI that gets replaced) */
-$form.addEventListener('submit', async (ev) => {
+/* send a message with optimistic UI; include room_id and room_token if present */
+$form.addEventListener('submit', async (ev)=>{
   ev.preventDefault();
-  const txt = $text.value.trim();
+  const txt = $text.value.trim(); if(!txt) return;
+  if(!currentRoomId){ alert('Join a room first'); return; }
   const name = $name.value.trim() || 'anon';
-  if(!txt) return;
   $text.value = '';
 
-  // create optimistic row with temp id
   const tempId = uid();
-  const optimisticRow = { username: name, content: txt, created_at: nowIso() };
-  addMessage(optimisticRow, { tempId, mark: 'sending…' });
+  const optimistic = { username: name, content: txt, created_at: nowIso() };
+  addMessageDOM(optimistic, { tempId, mark: 'sending…' });
 
-  // insert and request returning row
-  const { data, error } = await supabase
-    .from('messages')
-    .insert([{ content: txt, username: name }])
-    .select(); // request returned row(s)
+  const insertPayload = { content: txt, username: name, room_id: currentRoomId };
+  if(currentRoomToken) insertPayload.room_token = currentRoomToken;
+
+  const { data, error } = await supabase.from('messages').insert([insertPayload]).select();
 
   console.log('insert response', { data, error, tempId });
 
   if(error){
     console.error('insert failed', error);
-    // mark optimistic as failed
     const el = document.querySelector(`[data-temp-id="${tempId}"]`);
     if(el){
-      const meta = el.querySelector('.meta');
-      if(meta) meta.textContent = (name || 'anon') + ' • ' + formatTime(nowIso()) + ' • failed';
-      const body = el.querySelector('.body');
-      if(body) body.textContent = '⚠ failed to send: ' + (error.message || JSON.stringify(error));
-      el.setAttribute('data-send-failed', '1');
+      const meta = el.querySelector('.meta'); if(meta) meta.textContent = (name||'anon')+' • '+formatTime(nowIso())+' • failed';
+      const body = el.querySelector('.body'); if(body) body.textContent = '⚠ failed to send: ' + (error.message || JSON.stringify(error));
+      el.setAttribute('data-send-failed','1');
     }
-  } else if(data && data[0]){
+  } else if(data && data[0]) {
     const returned = data[0];
-    // remove optimistic and add the returned row (so it looks like single message)
     removeOptimistic(tempId);
-    // If realtime fires later, it will be ignored because addMessage checks for existing id
-    addMessage(returned);
+    addMessageDOM(returned);
     $status.textContent = 'message sent';
   } else {
-    // fallback: if no returned row but no error, clear optimistic mark
+    // fallback
     const el = document.querySelector(`[data-temp-id="${tempId}"]`);
-    if(el){
-      const meta = el.querySelector('.meta');
-      if(meta) meta.textContent = (name || 'anon') + ' • ' + formatTime(nowIso());
-      el.removeAttribute('data-temp-id');
-    }
+    if(el){ el.removeAttribute('data-temp-id'); }
   }
 });
 
-/* init */
+/* startup: parse URL params for room+token, load rooms, subscribe realtime, and auto-join if params present */
 (async function init(){
-  await loadMessages();
+  await loadRooms();
   await subscribeRealtime();
-  if($status.textContent === 'connected (realtime)' || $status.textContent === 'loaded') {
-    $status.textContent = 'connected';
+
+  // check URL params
+  const params = new URLSearchParams(location.search);
+  const room = params.get('room');
+  const token = params.get('token');
+  if(room){
+    // if token present, persist it for the room
+    if(token) persistRoomTokenLocally(room, token);
+    // attempt to join
+    await joinRoom(room, token);
+  } else {
+    // auto-join first room if exists
+    const firstRoomEl = $rooms.querySelector('.room-item');
+    if(firstRoomEl){
+      // find its index by element order -> use rooms list reload (we can requery)
+      const { data } = await supabase.from('rooms').select('id').order('created_at',{ascending:true}).limit(1);
+      if(data && data[0]) joinRoom(data[0].id, getLocalRoomToken(data[0].id));
+    }
   }
+
+  // wire UI buttons
+  $createRoomBtn.onclick = createRoom;
+  $refreshRoomsBtn.onclick = loadRooms;
+
+  $status.textContent = 'ready';
 })();
 </script>
 </body>
